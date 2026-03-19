@@ -1,0 +1,188 @@
+openapi: 3.0.3
+info:
+  title: AI Automotive Platform API
+  version: 1.0.0
+  description: Core RESTful APIs for the AI Automotive Platform handling Users, Inventory, Chatbot submission, and Auctions.
+servers:
+  - url: https://api.automotiveplatform.com/v1
+    description: Production Server
+paths:
+  /auth/register:
+    post:
+      summary: Register a new User or Dealer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [USER, DEALER]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/login:
+    post:
+      summary: Authenticate User/Dealer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /chatbot/completion:
+    post:
+      summary: Send a message to the AI Chatbot and get a response
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                message:
+                  type: string
+      responses:
+        '200':
+          description: Chatbot Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                  extracted_data:
+                    $ref: '#/components/schemas/VehicleMetadata'
+
+  /inventory/cars:
+    post:
+      summary: Create a new car listing (User or Dealer)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+      responses:
+        '201':
+          description: Vehicle Listed Successfully
+
+    get:
+      summary: Get list of active car listings / Search inventory
+      parameters:
+        - in: query
+          name: make
+          schema:
+            type: string
+        - in: query
+          name: model
+          schema:
+            type: string
+        - in: query
+          name: max_price
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of Vehicles
+
+  /auctions/{auction_id}/bids:
+    post:
+      summary: Place a manual REST bid (Note - live bids usually go over WSS)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: auction_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: integer
+      responses:
+        '201':
+          description: Bid Accepted
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            role:
+              type: string
+    VehicleMetadata:
+      type: object
+      properties:
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+        trim:
+          type: string
+        mileage:
+          type: integer
+    Vehicle:
+      allOf:
+        - $ref: '#/components/schemas/VehicleMetadata'
+        - type: object
+          properties:
+            seller_id:
+              type: string
+            price:
+              type: integer
+            status:
+              type: string
+              enum: [DRAFT, ACTIVE, SOLD]
